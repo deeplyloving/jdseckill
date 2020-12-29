@@ -806,36 +806,28 @@ func (jd *JdUtils) GetOrderInitData() (*simplejson.Json, error) {
 		resp, err := req.Response()
 		if err != nil {
 			logs.Error("获取秒杀初始化信息请求异常: ", err)
-			if jd.IsSleep {
-				time.Sleep(time.Duration(jd.SleepMillisecond) * time.Millisecond)
-			}
+			jd.RandSleep()
 			continue
 		}
 		if resp.StatusCode == http.StatusOK {
 			respMsg, err := req.String()
 			if err != nil {
 				logs.Error("获取秒杀初始化信息,请求数据异常: ", err)
-				if jd.IsSleep {
-					time.Sleep(time.Duration(jd.SleepMillisecond) * time.Millisecond)
-				}
+				jd.RandSleep()
 				continue
 			}
 
 			Json, err := ToJSON(respMsg)
 			if err != nil {
 				logs.Error("解析Json响应数据失败: %s ", err)
-				if jd.IsSleep {
-					time.Sleep(time.Duration(jd.SleepMillisecond) * time.Millisecond)
-				}
+				jd.RandSleep()
 				continue
 			}
 			return Json, nil
 		} else {
 			err := fmt.Errorf("获取秒杀初始化信息失败,StatusCode: %d", resp.StatusCode)
 			logs.Error(err.Error())
-			if jd.IsSleep {
-				time.Sleep(time.Duration(jd.SleepMillisecond) * time.Millisecond)
-			}
+			jd.RandSleep()
 			continue
 		}
 	}
