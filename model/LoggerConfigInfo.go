@@ -18,6 +18,7 @@ type AppConfig struct {
 	SkuId             string
 	BuyTime           string
 	UserAgent         string
+	PayPassword       string
 	RandomUserAgent   bool
 	MessageEnable     bool
 	MessageKey        string
@@ -28,5 +29,5 @@ type AppConfig struct {
 	StopSeconds       float64
 	IsSleep           bool
 	IsFast            bool
-	SleepMillisecond  int64
+	SleepMillisecond  int
 }

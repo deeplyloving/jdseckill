@@ -7,6 +7,12 @@ import (
 	"time"
 )
 
+var (
+	quit              = make(chan int)
+	killSuccess       = false
+	orderStatus error = nil
+)
+
 func CmJdMaotaiProcessor(cookiesId string, fastModel bool) error {
 	//TODO 初始化JdUtils
 	logs.Info("UserId:", cookiesId)
@@ -59,33 +65,55 @@ func CmJdMaotaiProcessor(cookiesId string, fastModel bool) error {
 		go jd.WeChatSendMessage(weChatMessage)
 	}
 
-	//TODO 访问商品的抢购链接
-	if err := jd.RequestSeckill(); err != nil {
-		logs.Error(err.Error())
-		return err
+	count := 10
+	for i := 0; i < count; i++ {
+		go multiThreadingSkill(jd, fastModel)
 	}
 
-	if !fastModel {
-		//TODO 访问抢购订单结算页面
-		if err := jd.RequestCheckOut(); err != nil {
-			logs.Error(err.Error())
-			return err
-		}
+	for i := 0; i < count; i++ {
+		<-quit
 	}
+	return orderStatus
+}
+
+func multiThreadingSkill(jd *utils.JdUtils, fastModel bool) error {
+	defer func() {
+		quit <- 1
+	}()
 
 	for {
+		if killSuccess {
+			orderStatus = nil
+			return nil
+		}
+		//TODO 访问商品的抢购链接
+		if err := jd.RequestSeckill(); err != nil {
+			logs.Error(err.Error())
+			continue
+		}
+
+		if !fastModel {
+			//TODO 访问抢购订单结算页面
+			if err := jd.RequestCheckOut(); err != nil {
+				logs.Error(err.Error())
+				continue
+			}
+		}
 		//TODO 开始提交订单
 		if err := jd.SubmitOrder(); err == nil {
+			killSuccess = true
+			orderStatus = nil
 			return nil
 		}
 		nowTime := time.Now()
 		if nowTime.Sub(jd.BuyTime).Seconds() > utils.AppConfig.StopSeconds {
 			logs.Info("抢购时间以过【%f】分钟，自动停止...", utils.AppConfig.StopSeconds)
-			weChatMessage = fmt.Sprintf(utils.MessageFormat, jd.UserName, jd.BuyTime, jd.SkuName, jd.SkuPrice, "成功", "抢购失败", "")
+			weChatMessage := fmt.Sprintf(utils.MessageFormat, jd.UserName, jd.BuyTime, jd.SkuName, jd.SkuPrice, "成功", "抢购失败", "")
 			if utils.AppConfig.MessageEnable {
 				go jd.WeChatSendMessage(weChatMessage)
 			}
-			return fmt.Errorf("抢购时间以过【%f】分钟，自动停止...", utils.AppConfig.StopSeconds)
+			orderStatus = fmt.Errorf("抢购时间以过【%f】分钟，自动停止...", utils.AppConfig.StopSeconds)
+			return orderStatus
 		}
 	}
 }

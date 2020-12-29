@@ -6,6 +6,7 @@ import (
 	"github.com/astaxie/beego/logs"
 	"github.com/nsf/termbox-go"
 	"jdseckill/utils"
+	"runtime"
 	"strconv"
 	"time"
 )
@@ -21,6 +22,8 @@ func init() {
 	}
 	termbox.SetCursor(0, 0)
 	termbox.HideCursor()
+	cpuNum := runtime.NumCPU()
+	runtime.GOMAXPROCS(cpuNum) // 最多同时使用核数
 }
 
 func pause() {
@@ -44,5 +47,7 @@ func main() {
 	//TODO 初始化配置信息
 	utils.InitAppConfigByJson(beego.AppConfig.String("logConf"), cookiesId)
 	CmJdMaotaiProcessor(cookiesId, isFast || utils.AppConfig.IsFast)
-	pause()
+	if killSuccess {
+		pause()
+	}
 }

@@ -46,6 +46,7 @@ func InitAppConfigByJson(configPath, cookiesId string) {
 	skuId := beego.AppConfig.String("skuId")
 	buyTime := beego.AppConfig.String("buyTime")
 	userAgent := beego.AppConfig.String("userAgent")
+	payPassword := beego.AppConfig.DefaultString("payPassword", "")
 	randomUseragent := beego.AppConfig.DefaultBool("randomUseragent", false)
 	messengerEnable := beego.AppConfig.DefaultBool("messengerEnable", false)
 	messengerSckey := beego.AppConfig.String("messengerSckey")
@@ -57,7 +58,7 @@ func InitAppConfigByJson(configPath, cookiesId string) {
 	stopSeconds := beego.AppConfig.DefaultFloat("StopSeconds", 30)
 	isFast := beego.AppConfig.DefaultBool("IsFast", false)
 	isSleep := beego.AppConfig.DefaultBool("IsSleep", false)
-	sleepMillisecond := beego.AppConfig.DefaultInt64("SleepMillisecond", 100)
+	sleepMillisecond := beego.AppConfig.DefaultInt("SleepMillisecond", 10)
 	dayStr := time.Now().Format(DayFormat)
 	if randomUseragent {
 		rand.Seed(time.Now().Unix())
@@ -66,6 +67,7 @@ func InitAppConfigByJson(configPath, cookiesId string) {
 	AppConfig.Eid = eid
 	AppConfig.Fp = fp
 	AppConfig.SkuId = skuId
+	AppConfig.PayPassword = payPassword
 	AppConfig.BuyTime = fmt.Sprintf("%s %s", dayStr, buyTime)
 	AppConfig.UserAgent = userAgent
 	AppConfig.RandomUserAgent = randomUseragent

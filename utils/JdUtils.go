@@ -38,17 +38,15 @@ var (
 )
 
 type JdUtils struct {
-	QrFilePath       string
-	CookiesFile      string
-	Token            string
-	UserName         string
-	SkuName          string
-	SkuPrice         string
-	IsSleep          bool
-	BuyTime          time.Time
-	Jar              *SimpleJar
-	CookiesId        string
-	SleepMillisecond int64
+	QrFilePath  string
+	CookiesFile string
+	Token       string
+	UserName    string
+	SkuName     string
+	SkuPrice    string
+	BuyTime     time.Time
+	Jar         *SimpleJar
+	CookiesId   string
 }
 
 func NewJdUtils(cookiesId string) *JdUtils {
@@ -78,8 +76,6 @@ func NewJdUtils(cookiesId string) *JdUtils {
 		JarType:  JarJson,
 		Filename: cookieFileName,
 	})
-	jd.IsSleep = AppConfig.IsSleep
-	jd.SleepMillisecond = AppConfig.SleepMillisecond
 	DefaultHeaders["User-Agent"] = AppConfig.UserAgent
 	buyTime, err := time.ParseInLocation(TimeFormat, AppConfig.BuyTime, time.Local)
 	if err != nil {
@@ -240,6 +236,14 @@ func (jd *JdUtils) GetJdTime() time.Time {
 		logs.Error("获取京东时间失败: %", err)
 		err = fmt.Errorf("%+v", resp.Status)
 		return time.Now()
+	}
+}
+
+func (jd *JdUtils) RandSleep() {
+	if AppConfig.IsSleep {
+		rand.Seed(time.Now().UnixNano())
+		randomMillisecond := rand.Intn(AppConfig.SleepMillisecond) + 100
+		time.Sleep(time.Duration(randomMillisecond) * time.Millisecond)
 	}
 }
 
@@ -620,35 +624,27 @@ func (jd *JdUtils) GetSeckillUrl() string {
 		resp, err := req.Response()
 		if err != nil {
 			logs.Error("获取商品的抢购链接请求异常: ", err)
-			if jd.IsSleep {
-				time.Sleep(time.Duration(jd.SleepMillisecond) * time.Millisecond)
-			}
+			jd.RandSleep()
 			continue
 		}
 		if resp.StatusCode == http.StatusOK {
 			respMsg, err := req.String()
 			if err != nil {
 				logs.Error("获取商品的抢购链接,请求数据异常: ", err)
-				if jd.IsSleep {
-					time.Sleep(time.Duration(jd.SleepMillisecond) * time.Millisecond)
-				}
+				jd.RandSleep()
 				continue
 			}
 			Json, err := ToJSON(respMsg)
 			if err != nil {
 				logs.Error("解析Json响应数据失败: %s ", err)
-				if jd.IsSleep {
-					time.Sleep(time.Duration(jd.SleepMillisecond) * time.Millisecond)
-				}
+				jd.RandSleep()
 				continue
 			}
 			logs.Info("SeckillUrl:", Json.MustString())
 			routeUrl := Json.Get("url").MustString("")
 			if routeUrl == "" {
 				logs.Info("抢购链接获取失败，%s 不是抢购商品或抢购页面暂未刷新，稍后重试...", AppConfig.SkuId)
-				if jd.IsSleep {
-					time.Sleep(time.Duration(jd.SleepMillisecond) * time.Millisecond)
-				}
+				jd.RandSleep()
 				continue
 			} else {
 				//TODO https://divide.jd.com/user_routing?skuId=8654289&sn=c3f4ececd8461f0e4d7267e96a91e0e0&from=pc
@@ -660,9 +656,7 @@ func (jd *JdUtils) GetSeckillUrl() string {
 				return seckillUrl
 			}
 		}
-		if jd.IsSleep {
-			time.Sleep(time.Duration(jd.SleepMillisecond) * time.Millisecond)
-		}
+		jd.RandSleep()
 	}
 }
 
@@ -689,14 +683,13 @@ func (jd *JdUtils) RequestCheckOut() error {
 }
 
 func (jd *JdUtils) SubmitOrder() error {
-
 	orderData, err := jd.GetOrderData()
 	if err != nil {
 		logs.Error("生成提交抢购订单所需参数异常：", err)
 		return err
 	}
 	logs.Info("orderData:", orderData)
-	for i := 0; i < 200; i++ {
+	for i := 0; i < 10; i++ {
 		submitUrl := fmt.Sprintf("https://marathon.jd.com/seckillnew/orderService/pc/submitOrder.action?skuId=%s", AppConfig.SkuId)
 		skillUrl := fmt.Sprintf("https://marathon.jd.com/seckill/seckill.action?skuId=%s&num=%s&rid=%s", AppConfig.SkuId, strconv.FormatInt(AppConfig.CheckOutNumber, 10), strconv.FormatInt(time.Now().Unix(), 10))
 		req := httplib.Post(submitUrl)
@@ -708,26 +701,20 @@ func (jd *JdUtils) SubmitOrder() error {
 		logs.Info("开始提交抢购订单【%d】次...", i)
 		resp, err := req.Response()
 		if err != nil {
-			if jd.IsSleep {
-				time.Sleep(time.Duration(jd.SleepMillisecond) * time.Millisecond)
-			}
+			jd.RandSleep()
 			continue
 		}
 		if resp.StatusCode == http.StatusOK {
 			respMsg, err := req.String()
 			if err != nil {
 				logs.Error("获取抢购订单,请求数据异常: ", err)
-				if jd.IsSleep {
-					time.Sleep(time.Duration(jd.SleepMillisecond) * time.Millisecond)
-				}
+				jd.RandSleep()
 				continue
 			}
 			Json, err := ToJSON(respMsg)
 			if err != nil {
 				logs.Error("解析Json响应数据失败: %s ", err)
-				if jd.IsSleep {
-					time.Sleep(time.Duration(jd.SleepMillisecond) * time.Millisecond)
-				}
+				jd.RandSleep()
 				continue
 			}
 			orderStatus := Json.Get("success").MustBool(false)
@@ -743,16 +730,12 @@ func (jd *JdUtils) SubmitOrder() error {
 				return nil
 			} else {
 				logs.Error("抢购失败，返回信息:%s", respMsg)
-				if jd.IsSleep {
-					time.Sleep(time.Duration(jd.SleepMillisecond) * time.Millisecond)
-				}
+				jd.RandSleep()
 				continue
 			}
 		} else {
 			logs.Error("提交抢购订单失败,StatusCode: %d", resp.StatusCode)
-			if jd.IsSleep {
-				time.Sleep(time.Duration(jd.SleepMillisecond) * time.Millisecond)
-			}
+			jd.RandSleep()
 			continue
 		}
 	}
@@ -796,7 +779,7 @@ func (jd *JdUtils) GetOrderData() (map[string]string, error) {
 	orderdata["invoicePhone"] = invoiceInfo.Get("invoicePhone").MustString("")
 	orderdata["invoicePhoneKey"] = invoiceInfo.Get("invoicePhoneKey").MustString("")
 	orderdata["invoice"] = "true"
-	orderdata["password"] = ""
+	orderdata["password"] = AppConfig.PayPassword
 	orderdata["codTimeType"] = "3"
 	orderdata["paymentType"] = "4"
 	orderdata["areaCode"] = ""
@@ -945,7 +928,7 @@ func (jd *JdUtils) TaskCorn() error {
 	}
 	for {
 		if time.Now().Before(jd.BuyTime) || jd.GetJdTime().Before(jd.BuyTime) {
-			time.Sleep(time.Duration(jd.SleepMillisecond) * time.Nanosecond)
+			time.Sleep(time.Duration(100) * time.Nanosecond)
 		} else {
 			logs.Info("时间到达，开始执行……")
 			return nil
